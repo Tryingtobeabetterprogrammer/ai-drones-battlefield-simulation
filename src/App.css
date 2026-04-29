@@ -1,0 +1,167 @@
+.app-container {
+  display: flex;
+  height: 100vh;
+  /* Add padding to top to account for hidden titlebar (Electron) */
+  padding-top: 30px; 
+  background-color: #121212;
+}
+
+.sidebar {
+  width: 250px;
+  background-color: #1a1a1a;
+  border-right: 1px solid #2a2a2a;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-header {
+  padding: 20px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #4CAF50; /* Radar green */
+  letter-spacing: 1px;
+  border-bottom: 1px solid #2a2a2a;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav-menu {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex-grow: 1;
+}
+
+.nav-item {
+  padding: 15px 20px;
+  cursor: pointer;
+  transition: background-color 0.2s, border-left 0.2s;
+  border-left: 3px solid transparent;
+  color: #aaa;
+}
+
+.nav-item:hover {
+  background-color: #222;
+  color: #fff;
+}
+
+.nav-item.active {
+  background-color: #2a2a2a;
+  border-left: 3px solid #4CAF50;
+  color: #fff;
+}
+
+.main-content {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: #121212;
+}
+
+.top-bar {
+  height: 60px;
+  background-color: #1a1a1a;
+  border-bottom: 1px solid #2a2a2a;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  justify-content: space-between;
+}
+
+.top-bar h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 500;
+  color: #eee;
+}
+
+.system-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+}
+
+.status-indicator {
+  width: 10px;
+  height: 10px;
+  background-color: #4CAF50;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #4CAF50;
+}
+
+.content-area {
+  flex-grow: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.card {
+  background-color: #1e1e1e;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+
+.card h3 {
+  margin-top: 0;
+  color: #aaa;
+  font-size: 1rem;
+  font-weight: 500;
+  margin-bottom: 15px;
+}
+
+.metric {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #fff;
+}
+
+.metric.danger {
+  color: #f44336;
+}
+
+.radar-view {
+  height: 300px;
+  background: radial-gradient(circle, #1a2a1a 0%, #121212 70%);
+  border: 1px solid #2a4a2a;
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.radar-sweep {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 50%;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(76, 175, 80, 0.8) 0%, rgba(76, 175, 80, 0) 100%);
+  transform-origin: left center;
+  animation: sweep 4s linear infinite;
+}
+
+@keyframes sweep {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.drone-dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background-color: #f44336;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #f44336;
+}
