@@ -1,16 +1,126 @@
+import React, { useState } from 'react';
 import { useSimulation } from '../context/SimulationContext';
+import { useLogs } from '../hooks/useLogs';
 import { LogPanel, Alerts } from './BlockchainHUD';
+import TrustChart from './TrustChart';
+import { DroneAnalysisPanel } from './DroneAnalysisPanel';
+
+const TrustAnalysisPanel = ({ drones, history, onClose }) => {
+  const aiDrones = drones.filter(d => d.isAI);
+  const legacyDrones = drones.filter(d => !d.isAI);
+
+  const avgAiTrust = aiDrones.reduce((acc, d) => acc + d.trustScore, 0) / (aiDrones.length || 1);
+  const avgLegacyTrust = legacyDrones.reduce((acc, d) => acc + d.trustScore, 0) / (legacyDrones.length || 1);
+
+  return (
+    <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-md z-50 pointer-events-auto">
+      <div className="bg-[#111418] border border-blue-500/30 w-[700px] rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+        {/* Header */}
+        <div className="bg-blue-600/10 border-b border-white/10 px-6 py-4 flex justify-between items-center">
+          <div>
+            <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-blue-400">Tactical Trust Analysis</h2>
+            <p className="text-[10px] text-gray-500 uppercase mt-0.5">Real-time Bayesian Trust Metrics</p>
+          </div>
+          <button 
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-gray-400 hover:text-white"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-8 space-y-8">
+          <TrustChart history={history} />
+
+          <div className="grid grid-cols-2 gap-8">
+            {/* AI Drones Section */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-end">
+                <div>
+                  <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">AI-Enabled Swarm</span>
+                  <h3 className="text-xl font-mono font-bold text-white">{(avgAiTrust * 100).toFixed(1)}%</h3>
+                </div>
+                <span className="text-[10px] text-green-500 font-bold uppercase">Resilient</span>
+              </div>
+              <div className="h-2 bg-gray-800/50 rounded-full overflow-hidden border border-white/5">
+                <div 
+                  className="h-full bg-gradient-to-r from-blue-600 to-cyan-400 shadow-[0_0_15px_rgba(37,99,235,0.5)] transition-all duration-500"
+                  style={{ width: `${avgAiTrust * 100}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Legacy Drones Section */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-end">
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Legacy Nodes Cluster</span>
+                  <h3 className="text-xl font-mono font-bold text-white">{(avgLegacyTrust * 100).toFixed(1)}%</h3>
+                </div>
+                <span className={`text-[10px] font-bold uppercase ${avgLegacyTrust < 0.5 ? 'text-red-500 animate-pulse' : 'text-orange-400'}`}>
+                  {avgLegacyTrust < 0.5 ? 'Critical' : 'Vulnerable'}
+                </span>
+              </div>
+              <div className="h-2 bg-gray-800/50 rounded-full overflow-hidden border border-white/5">
+                <div 
+                  className={`h-full transition-all duration-500 ${avgLegacyTrust < 0.5 ? 'bg-red-500 shadow-[0_0_15px_rgba(220,38,38,0.5)]' : 'bg-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.5)]'}`}
+                  style={{ width: `${avgLegacyTrust * 100}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const Dashboard = () => {
   const { 
     drones, 
-    rfStatus, setRfStatus, 
-    missionTime, 
-    threats,
-    simulateAttack,
-    resetSimulation,
-    viewMode, setViewMode
+    rfMode, setRfMode, 
+    isOpticalMode, setOpticalMode,
+    addLog,
+    missionTime,
+    trustHistory,
+    resetSimulation
   } = useSimulation();
+  
+  const addBlock = useLogs((s) => s.addBlock);
+
+  const [activeView, setActiveView] = useState('Follow View');
+  const [showTrustPanel, setShowTrustPanel] = useState(false);
+  const [selectedDroneId, setSelectedDroneId] = useState(null);
+
+  React.useEffect(() => {
+    if (!selectedDroneId && drones.length > 0) {
+      setSelectedDroneId(drones[0].id);
+    }
+  }, [drones, selectedDroneId]);
+  const [activeChannel, setActiveChannel] = useState(1);
+
+  // Logic to determine if a specific channel index is jammed
+  const isChannelIndexJammed = React.useCallback((idx) => {
+    if (rfMode === 'NORMAL') return false;
+    if (rfMode === 'FULL') return idx !== 5; // AI stays on CH5 in full spectrum
+    if (rfMode === 'RF' && [1, 2].includes(idx)) return true;
+    if (rfMode === 'CONTROL' && idx === 1) return true;
+    if (rfMode === 'DATA' && idx === 2) return true;
+    if (rfMode === 'GPS' && idx === 4) return true;
+    return false;
+  }, [rfMode]);
+
+  // Autonomous Hopping Logic
+  React.useEffect(() => {
+    if (isChannelIndexJammed(activeChannel)) {
+      const safeChannel = [1, 2, 3, 4, 5].find(ch => !isChannelIndexJammed(ch));
+      if (safeChannel) {
+        const timer = setTimeout(() => setActiveChannel(safeChannel), 600);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [activeChannel, isChannelIndexJammed]);
 
   // Helper to format mission time
   const formatTime = (seconds) => {
@@ -19,9 +129,45 @@ export const Dashboard = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const handleViewChange = (label) => {
+    if (label === 'Graph Representation') {
+      setShowTrustPanel(true);
+    } else {
+      setActiveView(label);
+      setShowTrustPanel(false);
+    }
+  };
+
+  const getChannelStatus = (name) => {
+    if (rfMode === 'NORMAL') return 'SAFE';
+    if (rfMode === 'FULL') {
+      return name === 'AI Mesh' ? 'RESILIENT' : 'JAMMED';
+    }
+    
+    const statusMap = {
+      'RF': ['Control Link', 'Data Link'],
+      'GPS': ['GPS/NAV'],
+      'CONTROL': ['Control Link'],
+      'DATA': ['Data Link', 'Video Stream'],
+    };
+
+    return statusMap[rfMode]?.includes(name) ? 'JAMMED' : 'SAFE';
+  };
+
+  const channels = [
+    { name: 'Control Link', freq: '2.4 GHz' },
+    { name: 'Data Link', freq: '2.45 GHz' },
+    { name: 'Video Stream', freq: '5.8 GHz' },
+    { name: 'GPS/NAV', freq: '1.5 GHz' },
+    { name: 'AI Mesh', freq: 'Encrypted' },
+  ];
+
   return (
     <div className="absolute inset-0 z-10 pointer-events-none text-white font-sans overflow-hidden select-none p-6">
       
+      {/* TRUST GRAPH PANEL */}
+      {showTrustPanel && <TrustAnalysisPanel drones={drones} history={trustHistory} onClose={() => setShowTrustPanel(false)} />}
+
       {/* TOP CENTER: HEADER */}
       <div className="absolute top-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
         <div className="bg-[#1a1c20]/90 backdrop-blur-md border border-white/10 px-10 py-2 rounded-lg shadow-2xl flex flex-col items-center">
@@ -30,6 +176,13 @@ export const Dashboard = () => {
             <span className="text-[10px] text-green-500 font-bold tracking-widest uppercase">System Online</span>
           </div>
         </div>
+        {isOpticalMode && (
+          <div className="bg-red-600/20 border border-red-500 px-6 py-1 rounded shadow-[0_0_20px_rgba(220,38,38,0.3)] animate-pulse">
+            <span className="text-[10px] font-bold tracking-[0.3em] uppercase text-red-500">
+              MODE: OPTICAL (Quantum-Inspired Validation)
+            </span>
+          </div>
+        )}
       </div>
 
       {/* TOP RIGHT: MISSION TIME */}
@@ -86,34 +239,32 @@ export const Dashboard = () => {
 
       {/* LEFT BOTTOM: LEGEND & CAMERA CONTROLS */}
       <div className="absolute bottom-6 left-6 space-y-4">
-        {/* Legend */}
-        <div className="bg-[#1a1c20]/90 backdrop-blur-md border border-white/10 p-4 rounded-lg shadow-xl w-[180px]">
-          <h2 className="text-[10px] font-bold uppercase tracking-widest mb-3 text-white">Legend</h2>
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <div className="w-4 h-0.5 border-t border-dashed border-blue-600" />
-              <span className="text-[9px] text-gray-300 font-bold uppercase tracking-wider">Active Link</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-4 h-0.5 border-t border-dashed border-red-500 relative flex items-center justify-center">
-                <span className="text-[8px] text-red-500 absolute">×</span>
-              </div>
-              <span className="text-[9px] text-gray-300 font-bold uppercase tracking-wider">Jammed Link</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-2 h-2 rounded-full bg-green-500" />
-              <span className="text-[9px] text-gray-300 font-bold uppercase tracking-wider">Drone</span>
-            </div>
-          </div>
-        </div>
 
-        {/* Camera Controls */}
-        <div className="bg-[#1a1c20]/90 backdrop-blur-md border border-white/10 p-4 rounded-lg shadow-xl w-[180px]">
-          <h2 className="text-[10px] font-bold uppercase tracking-widest mb-2 text-white">Camera Controls</h2>
-          <div className="space-y-1">
-            <div className="text-[8px] text-gray-400 font-bold uppercase"><span className="text-gray-500">•</span> Left Mouse - Rotate</div>
-            <div className="text-[8px] text-gray-400 font-bold uppercase"><span className="text-gray-500">•</span> Right Mouse - Pan</div>
-            <div className="text-[8px] text-gray-400 font-bold uppercase"><span className="text-gray-500">•</span> Scroll - Zoom</div>
+        {/* RF Channels Status */}
+        <div className="bg-[#1a1c20]/90 backdrop-blur-md border border-white/10 p-4 rounded-lg shadow-xl w-[200px]">
+          <h2 className="text-[10px] font-bold uppercase tracking-widest mb-3 text-white flex justify-between items-center">
+            RF Channels
+            {rfMode !== 'NORMAL' && <span className="text-[8px] text-red-500 animate-pulse">● Interference</span>}
+          </h2>
+          <div className="space-y-2">
+            {channels.map((ch) => {
+              const status = getChannelStatus(ch.name);
+              return (
+                <div key={ch.name} className="flex justify-between items-center">
+                  <div className="flex flex-col">
+                    <span className="text-[9px] text-gray-300 font-bold uppercase">{ch.name}</span>
+                    <span className="text-[7px] text-gray-500 font-mono">{ch.freq}</span>
+                  </div>
+                  <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${
+                    status === 'SAFE' ? 'text-green-500 bg-green-500/10' : 
+                    status === 'RESILIENT' ? 'text-blue-400 bg-blue-400/10 border border-blue-400/30' :
+                    'text-red-500 bg-red-500/10 animate-pulse'
+                  }`}>
+                    {status}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -121,14 +272,16 @@ export const Dashboard = () => {
       {/* BOTTOM CENTER: VIEW NAVIGATION */}
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 pointer-events-auto">
         <div className="flex items-center bg-[#1a1c20]/95 border border-white/10 rounded-md overflow-hidden p-0.5 shadow-2xl">
-          {['Top View', 'Follow View', 'Graph Rep', 'Drone Cam'].map((label) => (
+          {['Top View', 'Follow View', 'Graph Representation', 'Drone Analysis'].map((label) => (
             <button
               key={label}
-              onClick={() => setViewMode(label)}
+              onClick={() => handleViewChange(label)}
               className={`px-6 py-2 text-[10px] font-bold uppercase tracking-widest transition-all duration-300 ${
-                viewMode === label 
+                activeView === label && !showTrustPanel
                   ? 'bg-[#254160] text-white' 
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  : (showTrustPanel && label === 'Graph Representation')
+                    ? 'bg-[#254160] text-white'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
               }`}
             >
               {label}
@@ -137,127 +290,142 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      {/* TRUST GRAPH PANEL */}
-      {viewMode === 'Graph Rep' && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto">
-          <div className="bg-[#1a1c20]/95 backdrop-blur-xl border border-blue-500/30 p-8 rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.5)] w-[600px] relative overflow-hidden">
-            {/* Background Decorative Element */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full -mr-16 -mt-16 blur-3xl" />
-            
-            <div className="flex justify-between items-center mb-8 border-b border-white/10 pb-4">
-              <div>
-                <h2 className="text-xl font-bold tracking-[0.2em] uppercase text-white">Trust Analysis</h2>
-                <p className="text-[10px] text-blue-400 font-bold uppercase tracking-widest mt-1">Autonomous vs Legacy Systems</p>
-              </div>
-              <button 
-                onClick={() => setViewMode('Follow View')}
-                className="text-gray-500 hover:text-white transition-colors text-xl"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-8">
-              {/* AI Drones Trust */}
-              <div className="space-y-6">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-                  <h3 className="text-[12px] font-bold uppercase tracking-widest text-blue-400">AI Trust Level</h3>
-                </div>
-                
-                <div className="relative h-40 flex items-end justify-around bg-white/5 rounded-lg p-4 border border-white/5">
-                  {drones.filter(d => d.isAI).map((drone, idx) => (
-                    <div key={drone.id} className="flex flex-col items-center gap-2 w-full">
-                      <div 
-                        className="w-12 bg-gradient-to-t from-blue-600 to-blue-400 rounded-t-sm transition-all duration-500 shadow-[0_0_15px_rgba(59,130,246,0.3)]"
-                        style={{ height: `${drone.trustScore * 100}%` }}
-                      />
-                      <span className="text-[10px] font-mono text-blue-300">{(drone.trustScore * 100).toFixed(1)}%</span>
-                      <span className="text-[8px] text-gray-500 font-bold uppercase">{drone.id}</span>
-                    </div>
-                  ))}
-                  {/* Grid Lines */}
-                  <div className="absolute inset-x-0 bottom-0 top-0 pointer-events-none border-b border-white/10" />
-                  <div className="absolute inset-x-0 bottom-1/2 pointer-events-none border-b border-white/5" />
-                </div>
-              </div>
-
-              {/* Non-AI Drones Trust */}
-              <div className="space-y-6">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-gray-400" />
-                  <h3 className="text-[12px] font-bold uppercase tracking-widest text-gray-400">Non-AI Trust Level</h3>
-                </div>
-                
-                <div className="relative h-40 flex items-end justify-around bg-white/5 rounded-lg p-4 border border-white/5">
-                  {drones.filter(d => !d.isAI).map((drone, idx) => (
-                    <div key={drone.id} className="flex flex-col items-center gap-2 w-full">
-                      <div 
-                        className={`w-12 rounded-t-sm transition-all duration-500 ${
-                          drone.trustScore > 0.5 
-                            ? 'bg-gradient-to-t from-gray-600 to-gray-400 shadow-[0_0_15px_rgba(156,163,175,0.2)]' 
-                            : 'bg-gradient-to-t from-red-900 to-red-600 shadow-[0_0_15px_rgba(220,38,38,0.3)] animate-pulse'
-                        }`}
-                        style={{ height: `${drone.trustScore * 100}%` }}
-                      />
-                      <span className={`text-[10px] font-mono ${drone.trustScore > 0.5 ? 'text-gray-300' : 'text-red-400 font-bold'}`}>
-                        {(drone.trustScore * 100).toFixed(1)}%
-                      </span>
-                      <span className="text-[8px] text-gray-500 font-bold uppercase">{drone.id}</span>
-                    </div>
-                  ))}
-                  {/* Grid Lines */}
-                  <div className="absolute inset-x-0 bottom-0 top-0 pointer-events-none border-b border-white/10" />
-                  <div className="absolute inset-x-0 bottom-1/2 pointer-events-none border-b border-white/5" />
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-8 p-4 bg-white/5 rounded border border-white/10">
-              <p className="text-[9px] text-gray-400 leading-relaxed uppercase tracking-wider">
-                <span className="text-blue-400 font-bold">Analysis:</span> AI-enabled units utilize Bayesian inference to filter RF noise, maintaining higher trust coefficients during jamming events. Non-AI units rely on static frequency hops, making them susceptible to isolation and signal degradation.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* RIGHT: STATUS & LOGS */}
       <div className="absolute top-6 right-6 bottom-6 flex flex-col gap-4 pointer-events-none pt-24 pb-4">
         <div className="pointer-events-auto space-y-3">
-          {/* SYSTEM MODE INDICATOR */}
-          <div className="bg-[#1a1c20]/90 backdrop-blur-md border border-blue-500/30 px-4 py-3 rounded flex justify-between items-center w-[240px] shadow-[0_0_15px_rgba(37,99,235,0.1)]">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-300">System Mode</span>
-            <span className="text-[10px] font-bold uppercase text-blue-400">Hybrid Swarm</span>
-          </div>
-
           {/* RF ENVIRONMENT / ATTACK TRIGGER */}
-          <button 
-            onClick={() => rfStatus === 'NORMAL' ? simulateAttack() : setRfStatus('NORMAL')}
-            className={`group bg-[#1a1c20]/90 backdrop-blur-md border px-4 py-3 rounded flex justify-between items-center w-[240px] transition-all ${
-              rfStatus === 'JAMMING' ? 'border-red-500/50 bg-red-500/10' : 'border-white/10 hover:bg-white/5'
-            }`}
-          >
-            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-300">RF Status</span>
-            <span className={`text-[10px] font-bold uppercase ${rfStatus === 'JAMMING' ? 'text-red-500 animate-pulse' : 'text-green-500'}`}>
-              {rfStatus === 'JAMMING' ? 'JAMMED' : 'Normal'}
-            </span>
-          </button>
-
-          {/* THREATS DETECTED */}
-          <div className="bg-[#1a1c20]/90 backdrop-blur-md border border-white/10 px-4 py-2.5 rounded flex justify-between items-center w-[240px]">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-300">Threats Detected</span>
-            <span className="text-[10px] font-bold uppercase text-white font-mono">{threats}</span>
+          <div className={`bg-[#1a1c20]/90 backdrop-blur-md border p-4 rounded-lg flex flex-col w-[240px] transition-all ${
+            rfMode !== 'NORMAL' ? 'border-red-500/50 bg-red-500/10' : 'border-white/10'
+          }`}>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Electronic Warfare Mode</span>
+            <select 
+              value={rfMode}
+              onChange={(e) => {
+                setRfMode(e.target.value);
+                if (e.target.value !== 'NORMAL') {
+                  addLog('JAMMING_DETECTED', `Adversarial ${e.target.value} interference active.`);
+                }
+              }}
+              className="bg-black/40 border border-white/20 text-white text-[11px] font-mono p-2 rounded outline-none focus:border-blue-500/50 cursor-pointer"
+            >
+              <option value="NORMAL">NORMAL OPERATION</option>
+              <option value="RF">RF COMM JAMMING</option>
+              <option value="GPS">GPS NAVIGATION JAMMING</option>
+              <option value="CONTROL">CONTROL LINK JAMMING</option>
+              <option value="DATA">DATA/VIDEO TELEMETRY JAMMING</option>
+              <option value="FULL">FULL SPECTRUM (EXTREME)</option>
+            </select>
           </div>
+
+          {/* OPTICAL MODE TOGGLE */}
+          <div className={`bg-[#1a1c20]/90 backdrop-blur-md border p-4 rounded-lg flex flex-col w-[240px] transition-all ${
+            isOpticalMode ? 'border-red-600 bg-red-600/10 shadow-[0_0_15px_rgba(220,38,38,0.2)]' : 'border-white/10'
+          }`}>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Optical Channel</span>
+              <div className={`w-2 h-2 rounded-full ${isOpticalMode ? 'bg-red-500 animate-pulse' : 'bg-gray-700'}`} />
+            </div>
+            <button 
+              onClick={() => {
+                const newState = !isOpticalMode;
+                setOpticalMode(newState);
+                if (newState) {
+                  addLog('OPTICAL_CHANNEL_INIT', 'Quantum-Inspired Optical Validation enabled.');
+                  addBlock({ type: 'SYSTEM', message: 'Optical Channel Active: Verifying signal correlation.' });
+                }
+              }}
+              className={`w-full py-2 rounded text-[11px] font-bold uppercase tracking-wider transition-all ${
+                isOpticalMode 
+                  ? 'bg-red-600 text-white border border-red-400' 
+                  : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
+              }`}
+            >
+              {isOpticalMode ? 'DEACTIVATE OPTICAL' : 'ACTIVATE OPTICAL'}
+            </button>
+            {isOpticalMode && (
+              <p className="text-[8px] text-red-400/80 mt-2 font-mono leading-tight">
+                VALIDATING SIGNALS VIA TIMING & CONSENSUS...
+              </p>
+            )}
+          </div>
+
+          {/* DEMO SEQUENCE */}
+          <button 
+            onClick={() => {
+              addLog('DEMO_SEQUENCE', 'Starting Resilience Showcase...');
+              setRfMode('NORMAL');
+              setOpticalMode(false);
+              
+              setTimeout(() => {
+                setRfMode('FULL');
+                addLog('JAMMING_ATTACK', 'Full Spectrum Jamming Initiated.');
+              }, 2000);
+
+              setTimeout(() => {
+                setOpticalMode(true);
+                addLog('RESILIENCE_MODE', 'Switching to Quantum-Inspired Optical Layer.');
+              }, 5000);
+            }}
+            className="group bg-blue-600/20 border border-blue-500/50 px-4 py-2.5 rounded flex justify-between items-center w-[240px] hover:bg-blue-500/30 transition-all"
+          >
+            <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400">Run Resilience Demo</span>
+            <span className="text-[14px]">🚀</span>
+          </button>
 
           {/* RESET SYSTEM */}
           <button 
             onClick={resetSimulation}
-            className="group bg-[#1a1c20]/90 backdrop-blur-md border border-white/10 px-4 py-2.5 rounded flex justify-between items-center w-[240px] hover:bg-red-500/20 hover:border-red-500/50 transition-all mt-4"
+            className="group bg-[#1a1c20]/90 backdrop-blur-md border border-white/10 px-4 py-2.5 rounded flex justify-between items-center w-[240px] hover:bg-red-500/20 hover:border-red-500/50 transition-all mt-2"
           >
             <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">System Reset</span>
             <span className="text-[14px] text-gray-500 group-hover:text-red-500 transition-colors">🔄</span>
           </button>
+
+          {/* AI FREQUENCY HOPPING PANEL */}
+          <div className="bg-[#1a1c20]/90 backdrop-blur-md border border-white/10 p-4 rounded-lg flex flex-col w-[240px] mt-4">
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">AI Frequency Hopping</span>
+              <div className="flex gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                <span className="text-[8px] text-blue-400 font-bold uppercase">Active</span>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-5 gap-2">
+              {[1, 2, 3, 4, 5].map((ch) => {
+                const jammed = isChannelIndexJammed(ch);
+                const active = activeChannel === ch;
+                return (
+                  <div 
+                    key={ch}
+                    className={`flex flex-col items-center gap-1 p-1.5 rounded border transition-all duration-500 ${
+                      active 
+                        ? 'bg-blue-600/20 border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)]' 
+                        : jammed 
+                          ? 'bg-red-900/20 border-red-900/50 grayscale'
+                          : 'bg-black/20 border-white/5'
+                    }`}
+                  >
+                    <span className={`text-[8px] font-bold ${active ? 'text-blue-400' : jammed ? 'text-red-900' : 'text-gray-600'}`}>
+                      CH{ch.toString().padStart(2, '0')}
+                    </span>
+                    <div className={`w-full h-1 rounded-full ${
+                      active 
+                        ? 'bg-blue-500' 
+                        : jammed 
+                          ? 'bg-red-900' 
+                          : 'bg-gray-800'
+                    }`} />
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-[8px] text-gray-500 uppercase font-bold mt-3 text-center tracking-tighter">
+              {isChannelIndexJammed(activeChannel) 
+                ? '⚠️ Interference Detected - Searching...' 
+                : `Secured Link established on Channel ${activeChannel.toString().padStart(2, '0')}`}
+            </p>
+          </div>
         </div>
 
         <div className="flex-1 overflow-hidden pointer-events-auto flex flex-col justify-end">
@@ -266,7 +434,17 @@ export const Dashboard = () => {
 
         <LogPanel />
       </div>
+      {/* DRONE ANALYSIS PANEL */}
+      {activeView === 'Drone Analysis' && (
+        <DroneAnalysisPanel 
+          selectedDrone={drones.find(d => d.id === selectedDroneId)}
+          allDrones={drones}
+          onSelectDrone={setSelectedDroneId}
+          onClose={() => setActiveView('Follow View')}
+        />
+      )}
       
     </div>
   );
 };
+

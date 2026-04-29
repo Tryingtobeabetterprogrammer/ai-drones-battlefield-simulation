@@ -2,7 +2,7 @@ import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
-export const DroneModel = ({ color = '#33ff55', status = 'NORMAL' }) => {
+export const DroneModel = ({ color = '#33ff55', status = 'NORMAL', wireframe = false }) => {
   const rotorsRef = useRef([]);
 
   useFrame((state) => {
@@ -26,36 +26,36 @@ export const DroneModel = ({ color = '#33ff55', status = 'NORMAL' }) => {
         {/* Core fuselage */}
         <mesh castShadow receiveShadow>
           <boxGeometry args={[0.3, 0.15, 0.7]} />
-          <meshStandardMaterial color={bodyColor} roughness={0.2} metalness={0.8} />
+          <meshStandardMaterial color={bodyColor} roughness={0.2} metalness={0.8} wireframe={wireframe} />
         </mesh>
         
         {/* Top curved part */}
         <mesh position={[0, 0.08, 0.05]} castShadow>
           <boxGeometry args={[0.25, 0.05, 0.5]} />
-          <meshStandardMaterial color={bodyColor} roughness={0.2} metalness={0.9} />
+          <meshStandardMaterial color={bodyColor} roughness={0.2} metalness={0.9} wireframe={wireframe} />
         </mesh>
 
         {/* Front Nose / Camera Gimbal */}
         <group position={[0, -0.05, 0.35]}>
           <mesh castShadow>
             <boxGeometry args={[0.15, 0.15, 0.15]} />
-            <meshStandardMaterial color="#0a0a0a" />
+            <meshStandardMaterial color="#0a0a0a" wireframe={wireframe} />
           </mesh>
           {/* Lens */}
           <mesh position={[0, 0, 0.08]} rotation={[Math.PI / 2, 0, 0]}>
             <circleGeometry args={[0.04, 16]} />
-            <meshStandardMaterial color="#222" emissive="#00ffff" emissiveIntensity={0.5} />
+            <meshStandardMaterial color="#222" emissive="#00ffff" emissiveIntensity={0.5} wireframe={wireframe} />
           </mesh>
         </group>
 
         {/* Blue Accent Lights (Front) */}
         <mesh position={[0.12, 0, 0.3]} castShadow>
           <boxGeometry args={[0.02, 0.04, 0.1]} />
-          <meshStandardMaterial color={accentColor} emissive={accentColor} emissiveIntensity={2} />
+          <meshStandardMaterial color={accentColor} emissive={accentColor} emissiveIntensity={2} wireframe={wireframe} />
         </mesh>
         <mesh position={[-0.12, 0, 0.3]} castShadow>
           <boxGeometry args={[0.02, 0.04, 0.1]} />
-          <meshStandardMaterial color={accentColor} emissive={accentColor} emissiveIntensity={2} />
+          <meshStandardMaterial color={accentColor} emissive={accentColor} emissiveIntensity={2} wireframe={wireframe} />
         </mesh>
       </group>
 
@@ -65,32 +65,32 @@ export const DroneModel = ({ color = '#33ff55', status = 'NORMAL' }) => {
           {/* Main Arm Segment */}
           <mesh position={[0.35, 0, 0]} castShadow>
             <boxGeometry args={[0.4, 0.04, 0.08]} />
-            <meshStandardMaterial color={bodyColor} />
+            <meshStandardMaterial color={bodyColor} wireframe={wireframe} />
           </mesh>
           
           {/* Motor Pod */}
           <group position={[0.55, 0.05, 0]}>
             <mesh castShadow>
               <cylinderGeometry args={[0.08, 0.08, 0.12, 12]} />
-              <meshStandardMaterial color="#111" metalness={1} />
+              <meshStandardMaterial color="#111" metalness={1} wireframe={wireframe} />
             </mesh>
 
             {/* Blue light at tip of arm (like Pic 2) */}
             <mesh position={[0, -0.06, 0]}>
               <sphereGeometry args={[0.02, 8, 8]} />
-              <meshStandardMaterial color={accentColor} emissive={accentColor} emissiveIntensity={1} />
+              <meshStandardMaterial color={accentColor} emissive={accentColor} emissiveIntensity={1} wireframe={wireframe} />
             </mesh>
 
             {/* PROPELLERS */}
             <group ref={el => rotorsRef.current[i] = el} position={[0, 0.08, 0]}>
               <mesh castShadow>
                 <boxGeometry args={[0.7, 0.01, 0.06]} />
-                <meshStandardMaterial color="#111" transparent opacity={0.9} />
+                <meshStandardMaterial color="#111" transparent opacity={0.9} wireframe={wireframe} />
               </mesh>
               {/* Propeller hub */}
               <mesh castShadow>
                 <cylinderGeometry args={[0.03, 0.03, 0.03, 8]} />
-                <meshStandardMaterial color="#222" />
+                <meshStandardMaterial color="#222" wireframe={wireframe} />
               </mesh>
             </group>
           </group>
@@ -98,7 +98,7 @@ export const DroneModel = ({ color = '#33ff55', status = 'NORMAL' }) => {
           {/* Landing Leg (Subtle) */}
           <mesh position={[0.55, -0.15, 0]} castShadow>
             <boxGeometry args={[0.02, 0.2, 0.02]} />
-            <meshStandardMaterial color={bodyColor} />
+            <meshStandardMaterial color={bodyColor} wireframe={wireframe} />
           </mesh>
         </group>
       ))}
@@ -106,7 +106,7 @@ export const DroneModel = ({ color = '#33ff55', status = 'NORMAL' }) => {
       {/* Status Light (Top) */}
       <mesh position={[0, 0.1, -0.1]}>
         <sphereGeometry args={[0.03, 16, 16]} />
-        <meshStandardMaterial color={statusColor} emissive={statusColor} emissiveIntensity={2} />
+        <meshStandardMaterial color={statusColor} emissive={statusColor} emissiveIntensity={2} wireframe={wireframe} />
       </mesh>
     </group>
   );

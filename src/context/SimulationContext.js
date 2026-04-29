@@ -9,11 +9,12 @@ const BOUNDARY = 15;
 
 export const SimulationProvider = ({ children }) => {
   const [drones, setDrones] = useState([]);
-  const [rfStatus, setRfStatus] = useState('NORMAL'); // 'NORMAL', 'JAMMING'
+  const [rfMode, setRfMode] = useState('NORMAL'); // 'NORMAL', 'RF', 'GPS', 'CONTROL', 'DATA', 'FULL'
+  const [isOpticalMode, setOpticalMode] = useState(false);
   const [logs, setLogs] = useState([]);
   const [missionTime, setMissionTime] = useState(0);
   const [threats, setThreats] = useState(0);
-  const [viewMode, setViewMode] = useState('Follow View');
+  const [trustHistory, setTrustHistory] = useState([]); // Array of { time, aiTrust, legacyTrust }
   const addBlock = useLogs(s => s.addBlock);
 
   // Add a log to the "blockchain"
@@ -45,10 +46,12 @@ export const SimulationProvider = ({ children }) => {
       battery: 80 + Math.random() * 20, // Initial battery between 80-100%
     }));
     setDrones(initialDrones);
-    setRfStatus('NORMAL');
+    setRfMode('NORMAL');
+    setOpticalMode(false);
     setLogs([]);
     setMissionTime(0);
     setThreats(0);
+    setTrustHistory([]);
     addLog('SYSTEM_INIT', 'Hybrid Swarm initialized: 2 AI Nodes, 2 Legacy Nodes.');
     addBlock({ type: 'SYSTEM', message: 'System Re-initialized: Hybrid swarm nodes secured.' });
   }, [addLog, addBlock]);
@@ -57,26 +60,33 @@ export const SimulationProvider = ({ children }) => {
     resetSimulation();
   }, [resetSimulation]);
 
-  // Mission Timer
+  // Mission Timer & History Tracking
   useEffect(() => {
     const timer = setInterval(() => {
       setMissionTime(prev => prev + 1);
       
-      // Slowly drain battery
-      setDrones(prevDrones => prevDrones.map(d => ({
-        ...d,
-        battery: Math.max(0, d.battery - 0.05 * Math.random())
-      })));
+      // Update History
+      setDrones(currentDrones => {
+        const aiDrones = currentDrones.filter(d => d.isAI);
+        const legacyDrones = currentDrones.filter(d => !d.isAI);
+        const avgAiTrust = aiDrones.reduce((acc, d) => acc + d.trustScore, 0) / (aiDrones.length || 1);
+        const avgLegacyTrust = legacyDrones.reduce((acc, d) => acc + d.trustScore, 0) / (legacyDrones.length || 1);
+
+        setTrustHistory(prev => [...prev, {
+          time: missionTime,
+          aiTrust: avgAiTrust,
+          legacyTrust: avgLegacyTrust
+        }].slice(-30)); // Keep last 30 data points
+
+        // Slowly drain battery
+        return currentDrones.map(d => ({
+          ...d,
+          battery: Math.max(0, d.battery - 0.05 * Math.random())
+        }));
+      });
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
-
-  // Simulate RF attack
-  const simulateAttack = () => {
-    setRfStatus('JAMMING');
-    addLog('RF_ALERT', 'Active jamming detected on primary frequency (2.4GHz).');
-    addBlock({ type: 'RF_ATTACK', message: 'Jammer Activated: Wide-spectrum RF interference detected.' });
-  };
+  }, [missionTime]);
 
   const setDronesState = useCallback((newDrones) => {
     setDrones(newDrones);
@@ -85,12 +95,12 @@ export const SimulationProvider = ({ children }) => {
   return (
     <SimulationContext.Provider value={{
       drones, setDrones: setDronesState,
-      rfStatus, setRfStatus,
+      rfMode, setRfMode,
+      isOpticalMode, setOpticalMode,
       logs, addLog,
       missionTime,
+      trustHistory,
       threats,
-      viewMode, setViewMode,
-      simulateAttack,
       resetSimulation
     }}>
       {children}

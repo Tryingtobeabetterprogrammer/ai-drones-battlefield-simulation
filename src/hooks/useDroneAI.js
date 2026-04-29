@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useSimulation } from '../context/SimulationContext';
 
 export const useDroneAI = () => {
-  const { drones, setDrones, rfStatus, addLog } = useSimulation();
+  const { drones, setDrones, rfMode, addLog } = useSimulation();
   const dronesRef = useRef(drones);
 
   // Sync ref with state
@@ -39,34 +39,18 @@ export const useDroneAI = () => {
              addLog('WAYPOINT', `${drone.id} reached waypoint. Recalculating path.`);
           }
 
-          // 2. Anomaly Detection and Trust Update
-          if (rfStatus === 'JAMMING') {
-             const isAffected = Math.random() < 0.05;
-             
-             if (isAffected) {
-                if (!drone.isAI) {
-                   // ❌ Non-AI Failure Path
-                   updatedDrone.beta += 0.2;
-                } else {
-                   // 🤖 AI Response: Detected interference, re-routing
-                   updatedDrone.beta += 0.01;
-                   if (Math.random() < 0.05) { 
-                      updatedDrone.target = [
-                        (Math.random() - 0.5) * 30,
-                        Math.random() * 8 + 4,
-                        (Math.random() - 0.5) * 30
-                      ];
-                      addLog('AI_EVASION', `${drone.id} detecting RF interference. Re-routing to secure waypoint.`);
-                   }
-                }
-             } else if (drone.isAI) {
-                  updatedDrone.alpha += 0.05; 
+          // 2. AI Adaptive Behavior (Motion only)
+          if (rfMode !== 'NORMAL' && drone.isAI) {
+             // AI Response: Detected interference, re-routing
+             if (Math.random() < 0.05) { 
+                updatedDrone.target = [
+                  (Math.random() - 0.5) * 30,
+                  Math.random() * 8 + 4,
+                  (Math.random() - 0.5) * 30
+                ];
+                addLog('AI_EVASION', `${drone.id} detecting RF interference. Re-routing to secure waypoint.`);
              }
           }
-
-          // 3. Bayesian Trust Model Calculation (Simplified Sync)
-          // The actual trust calculation and status are handled inside Drone.js for smoothness,
-          // but we sync waypoint changes here.
 
           return updatedDrone;
         });
@@ -74,5 +58,5 @@ export const useDroneAI = () => {
     }, 500); 
 
     return () => clearInterval(interval);
-  }, [drones.length, rfStatus, setDrones, addLog]);
+  }, [drones.length, rfMode, setDrones, addLog]);
 };

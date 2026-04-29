@@ -1,6 +1,6 @@
-import { OrbitControls, useGLTF, Environment, ContactShadows, PerspectiveCamera } from '@react-three/drei';
-import { useFrame, useThree } from '@react-three/fiber';
-import * as THREE from 'three';
+import React, { Suspense, useMemo } from 'react';
+import { Canvas } from '@react-three/fiber';
+import { OrbitControls, useGLTF, Environment, ContactShadows } from '@react-three/drei';
 import { Swarm } from './Swarm';
 import { useSimulation } from '../context/SimulationContext';
 
@@ -22,26 +22,7 @@ const Scenery = React.memo(() => {
 });
 
 const Scene = () => {
-  const { rfStatus, viewMode, drones } = useSimulation();
-  const { camera } = useThree();
-  const controlsRef = React.useRef();
-
-  useFrame((state, delta) => {
-    if (viewMode === 'Top View') {
-      state.camera.position.lerp(new THREE.Vector3(0, 40, 0), 0.05);
-      controlsRef.current?.target.lerp(new THREE.Vector3(0, 0, 0), 0.05);
-    } else if (viewMode === 'Follow View') {
-      state.camera.position.lerp(new THREE.Vector3(30, 15, 30), 0.05);
-      controlsRef.current?.target.lerp(new THREE.Vector3(0, 0, 0), 0.05);
-    } else if (viewMode === 'Drone Cam' && drones.length > 0) {
-      // Look at the first AI drone
-      const aiDrone = drones.find(d => d.isAI) || drones[0];
-      // Note: We don't have real-time positions here easily without useSwarm, 
-      // but we can estimate or just let it be a closer view.
-      state.camera.position.lerp(new THREE.Vector3(10, 5, 10), 0.05);
-      controlsRef.current?.target.lerp(new THREE.Vector3(0, 2, 0), 0.05);
-    }
-  });
+  const { rfStatus } = useSimulation();
 
   return (
     <>
@@ -84,11 +65,11 @@ const Scene = () => {
       <Swarm />
       
       <OrbitControls 
-        ref={controlsRef}
         makeDefault 
         maxPolarAngle={Math.PI / 2 - 0.1}
         minDistance={5}
         maxDistance={60}
+        target={[0, 0, 0]}
         enableDamping
       />
     </>
